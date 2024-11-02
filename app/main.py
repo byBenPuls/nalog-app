@@ -21,6 +21,7 @@ class SecondWindow(customtkinter.CTkToplevel):
     def __init__(self, app: customtkinter.CTk, auth: Auth) -> None:
         super().__init__(app)
 
+        self.wm_protocol("WM_DELETE_WINDOW", self.on_closing)
         self.app = app
         self.auth = auth
 
@@ -63,6 +64,10 @@ class SecondWindow(customtkinter.CTkToplevel):
 
             self.app.deiconify()
             self.destroy()
+
+    def on_closing(self) -> None:
+        self.destroy()
+        self.app.destroy()
 
 
 class MyFrame(customtkinter.CTkFrame):
