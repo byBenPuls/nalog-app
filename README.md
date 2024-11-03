@@ -4,7 +4,7 @@
 Программа для ускорения процессов отправки информации о доходах самозанятых с Wildberries представляет собой небольшое приложение с графическим интерфейсом, построенным при помощи **customtkinter**.
 
 
-Программа получает Exel-документ `.xlsx` расширения, обрабатывает его и позволяет отправить необходимые поля сразу в https://lknpd.nalog.ru.
+Программа получает Excel-документ `.xlsx` расширения, обрабатывает его и позволяет отправить необходимые поля сразу в https://lknpd.nalog.ru.
 
 ### Технические особенности
 
@@ -73,7 +73,12 @@
         ```bash
         poetry install --with dev
         ```
+        Для Linux:
         ```bash
-        pyinstaller --onefile --name "nalog" -i "./assets/wb.ico" run.py
+        pyinstaller --onefile --name "nalog" --noconsole -i "./assets/wb.gif" run.py
+        ```
+        Для Windows/macOS:
+        ```bash
+        pyinstaller --onefile --name "nalog" --noconsole -i "./assets/wb.ico" run.py
         ```
     - В появившейся папке dist находим собранную программу
