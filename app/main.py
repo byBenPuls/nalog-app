@@ -1,14 +1,15 @@
-import asyncio
+import os
 import logging
 import threading
 
+import tkinter
 import customtkinter
 from tkinter import filedialog
 from PIL import ImageGrab
-from moy_nalog import MoyNalog
 
 from app.auth import Auth
-from app.tables import ExelReader, DocumentSalesIterator
+from app.tables import ExcelReader, DocumentSalesIterator
+from app.nalog import Sender
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +18,35 @@ def get_screen_size() -> tuple:
     return ImageGrab.grab().size
 
 
+def set_icon(window, filename_without_extension: str) -> None:
+    if "Linux" == os.uname().sysname:
+        logo = tkinter.PhotoImage(file=f"{filename_without_extension}.gif")
+        window.call("wm", "iconphoto", window._w, logo)
+    else:
+        window.iconbitmap(f"{filename_without_extension}.ico")
+
+
 class SecondWindow(customtkinter.CTkToplevel):
-    def __init__(self, app: customtkinter.CTk, auth: Auth) -> None:
+    def __init__(
+        self,
+        app: customtkinter.CTk,
+        auth: Auth,
+        frame: customtkinter.CTkFrame | None = None,
+        authorized: bool = False,
+    ) -> None:
         super().__init__(app)
 
+        self.authorized = authorized
+
         self.wm_protocol("WM_DELETE_WINDOW", self.on_closing)
+        if not authorized:
+            app.withdraw()
+
+        set_icon(app, "assets/wb")
+
+        self.frame = frame
         self.app = app
         self.auth = auth
-
-        app.withdraw()
 
         self.title("Авторизация nalog.ru")
         self.geometry("300x300")
@@ -51,7 +72,11 @@ class SecondWindow(customtkinter.CTkToplevel):
         )
         self.button_login.pack(pady=(15, 0))
 
-        self.checkbox = customtkinter.CTkCheckBox(self, text="Спрашивать при открытии")
+        checkbox_variable = customtkinter.BooleanVar(value=self.auth.ask_every_time)
+
+        self.checkbox = customtkinter.CTkCheckBox(
+            self, text="Спрашивать при открытии", variable=checkbox_variable
+        )
         self.checkbox.pack(pady=(0, 0))
 
     def login(self):
@@ -66,8 +91,11 @@ class SecondWindow(customtkinter.CTkToplevel):
             self.destroy()
 
     def on_closing(self) -> None:
+        if self.frame is not None:
+            self.frame.toplevel_window = None
         self.destroy()
-        self.app.destroy()
+        if not self.authorized:
+            self.app.destroy()
 
 
 class MyFrame(customtkinter.CTkFrame):
@@ -111,11 +139,15 @@ class MyFrame(customtkinter.CTkFrame):
 
     def open_auth_settings(self):
         if self.toplevel_window is None:
-            self.toplevel_window = SecondWindow(self.master, self.auth)
-            self.toplevel_window.focus()
-            self.toplevel_window = None
+            self.toplevel_window = SecondWindow(
+                self.master, self.auth, self, authorized=True
+            )
         else:
-            self.toplevel_window.focus()
+            try:
+                self.toplevel_window.focus()
+            except tkinter.TclError:
+                print("Error")
+                self.toplevel_window = None
 
 
 class App(customtkinter.CTk):
@@ -130,7 +162,7 @@ class App(customtkinter.CTk):
         self.auth = Auth()
 
         self.geometry("600x400")
-        self.iconbitmap("assets/wb.ico")
+        set_icon(self, "assets/wb")
         self.title("nalog.ru")
 
         self.grid_columnconfigure(1, weight=1)
@@ -140,7 +172,10 @@ class App(customtkinter.CTk):
         if not self.auth.is_auth or self.auth.ask_every_time:
             self.open_toplevel()
 
-        self.nalog = MoyNalog(login=self.auth.login, password=self.auth.password)
+        self.sender = Sender(
+            login=self.auth.login,
+            password=self.auth.password,
+        )
 
         self.frame_sidebar = MyFrame(self, self.auth)
         self.frame_sidebar.grid(row=0, column=0, rowspan=5, sticky="nsew")
@@ -190,7 +225,7 @@ class App(customtkinter.CTk):
         self.progress_bar.set(0)
 
     def file_task(self, path_to_file: str) -> None:
-        reader = ExelReader(path_to_file, read_only=True)
+        reader = ExcelReader(path_to_file, read_only=True)
         self.sales_iterator = DocumentSalesIterator(reader)
         self.progress_bar.stop()
         self.log.configure(text="Файл обработан и готов к отправке.")
@@ -199,7 +234,7 @@ class App(customtkinter.CTk):
     def open_file(self):
         file_path = filedialog.askopenfilename(
             title="Выберите файл",
-            filetypes=(("Excel Files", "*.xlsx"), ("All Files", "*.*")),
+            filetypes=(("Excel Files", "*.xlsx"),),
         )
         if file_path:
             self.lknpd_button.configure(state=customtkinter.ACTIVE)
@@ -214,42 +249,24 @@ class App(customtkinter.CTk):
         else:
             logging.debug("Choice is canceled")
 
-    def update_log_and_progress_bar(self, from_: str | int, to: str | int) -> None:
-        base_text = "Отправляю данные!"
-        modified_ = f"{base_text} ({from_}/{to})"
-        self.log.configure(text=modified_)
-        self.progress_bar.set(int(from_) / int(to))
-
-    async def async_send_data(self, data):
-        await asyncio.sleep(3)
-        # await self.nalog.add_income()
-
-    def send_data(self):
-        count_of_sales = len(self.sales_iterator)
-        self.log.configure(text="Отправляю данные!")
-        logging.info("Start distribution to https://lknpd.nalog.ru/")
-        successful_attempts = 0
-        for count, item in enumerate(self.sales_iterator, start=1):
-            self.update_log_and_progress_bar(count, count_of_sales)
-            try:
-                asyncio.run(self.async_send_data(item))
-                successful_attempts += 1
-            except Exception as ex:
-                logging.critical(f"Not transfeted {item} item\nError data: {ex}")
-        self.progress_bar.set(0)
-        self.log.configure(text="Данные успешно переданы!")
-        logging.info(
-            f"Distribution was finished. "
-            f"Successful attemps: {successful_attempts}/{count_of_sales}"
-        )
-        self.upload_button.configure(state=customtkinter.ACTIVE)
-
     def send(self):
         self.log.configure(text="Приступаю к отправке данных")
+        self.frame_sidebar.button1.configure(state=customtkinter.DISABLED)
         self.lknpd_button.configure(state=customtkinter.DISABLED)
         self.upload_button.configure(state=customtkinter.DISABLED)
         self.progress_bar.set(0)
-        threading.Thread(target=self.send_data, daemon=True).start()
+
+        threading.Thread(
+            target=self.sender.send_data,
+            daemon=True,
+            kwargs={
+                "iterator": self.sales_iterator,
+                "log": self.log,
+                "progress_bar": self.progress_bar,
+                "upload_button": self.upload_button,
+                "sidebar_button": self.frame_sidebar.button1,
+            },
+        ).start()
 
     def open_toplevel(self):
         if self.toplevel_window is None:
