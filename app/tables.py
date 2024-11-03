@@ -17,7 +17,7 @@ class Sale:
     # TODO: Use Decimal
 
 
-class ExelReader:
+class ExcelReader:
     def __init__(self, path: str, read_only: bool = False) -> None:
         """
         A simple interface for work with XLSX document
@@ -46,7 +46,7 @@ class ExelReader:
 
 
 class DocumentSalesIterator:
-    def __init__(self, document: ExelReader) -> None:
+    def __init__(self, document: ExcelReader) -> None:
         self.document = document
 
         self.serialized_rows = []
