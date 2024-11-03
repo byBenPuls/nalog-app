@@ -130,6 +130,7 @@ class App(customtkinter.CTk):
         self.auth = Auth()
 
         self.geometry("600x400")
+        self.iconbitmap("assets/wb.ico")
         self.title("nalog.ru")
 
         self.grid_columnconfigure(1, weight=1)
