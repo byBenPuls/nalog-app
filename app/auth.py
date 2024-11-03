@@ -38,19 +38,22 @@ class Auth:
 
     @property
     def is_auth(self):
-        return self.__data is not None
+        return self.__data != {}
 
     @property
     def ask_every_time(self):
         file = self.open_nalog_auth()
-        return file.get("ask") if file is not None else None
+        if file is not None:
+            return file.get("ask")
 
     @property
     def login(self):
         file = self.open_nalog_auth()
-        return file.get("login") if file is not None else None
+        if file is not None:
+            return file.get("login")
 
     @property
     def password(self):
         file = self.open_nalog_auth()
-        return file.get("password") if file is not None else None
+        if file is not None:
+            return file.get("password")
