@@ -27,7 +27,7 @@ build-app:
 	poetry show
 	pyinstaller --onefile \
 	--name "nalog-$(VERSION)-$(TARGET)-$(ARCH)" \
-	-i "./assets/wb.ico" \
+	-i "./assets/wb.gif" \
 	--noconsole \
 	 run.py
 
