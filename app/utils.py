@@ -1,7 +1,21 @@
+import configparser
 import platform
+
 import tkinter
 import customtkinter as ctk
 from PIL import ImageGrab
+
+
+def get_app_version() -> str:
+    config = configparser.ConfigParser(allow_no_value=True, delimiters=("=", ":"))
+    config.read("pyproject.toml")
+
+    try:
+        version = config["tool.poetry"]["version"]
+        return version
+    except KeyError:
+        print("Version not found in pyproject.toml.")
+        return None
 
 
 def get_screen_size() -> tuple:
