@@ -1,5 +1,4 @@
-import os
-
+import platform
 import tkinter
 import customtkinter as ctk
 from PIL import ImageGrab
@@ -10,7 +9,7 @@ def get_screen_size() -> tuple:
 
 
 def set_icon(window, filename_without_extension: str) -> None:
-    if "Linux" == os.uname().sysname:
+    if "Linux" == platform.system():
         logo = tkinter.PhotoImage(file=f"{filename_without_extension}.gif")
         window.call("wm", "iconphoto", window._w, logo)
     else:
