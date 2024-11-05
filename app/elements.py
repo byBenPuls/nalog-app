@@ -1,9 +1,13 @@
+from typing import Iterable
+
 import customtkinter as ctk
 
 
-def disable_button(button: ctk.CTkButton) -> None:
-    button.configure(state=ctk.DISABLED)
+def disable_buttons(buttons: Iterable[ctk.CTkButton]) -> None:
+    for button in buttons:
+        button.configure(state=ctk.DISABLED)
 
 
-def enable_button(button: ctk.CTkButton) -> None:
-    button.configure(state=ctk.ACTIVE)
+def enable_buttons(buttons: Iterable[ctk.CTkButton]) -> None:
+    for button in buttons:
+        button.configure(state=ctk.ACTIVE)
