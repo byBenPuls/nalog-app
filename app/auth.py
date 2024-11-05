@@ -8,8 +8,6 @@ logger = logging.getLogger(__name__)
 class Auth:
     def __init__(self) -> None:
         logger.debug("Auth successfully initialized")
-        self.__nalog = self.open_nalog_auth()
-        self.__data = self.__nalog if self.__nalog is not None else {}
 
     def write_nalog_data(self) -> None:
         pass
@@ -38,7 +36,7 @@ class Auth:
 
     @property
     def is_auth(self):
-        return self.__data != {}
+        return bool(self.open_nalog_auth())
 
     @property
     def ask_every_time(self):
