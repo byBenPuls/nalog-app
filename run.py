@@ -1,6 +1,6 @@
 import logging
 
-from app.main import app
+from app import application
 
 
 logging.basicConfig(
@@ -15,4 +15,4 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     logger.info("Running main")
     # run_app("app.main:app")
-    app.mainloop()
+    application.mainloop()
