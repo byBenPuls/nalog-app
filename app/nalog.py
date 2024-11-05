@@ -39,11 +39,13 @@ class Sender:
         self, name: str, amount: int | float, date: datetime.datetime
     ) -> None:
         await asyncio.sleep(self.cooldown)
-
         await self.nalog.add_income(name=name, amount=amount, date=date)
 
     def handle_exception(self, exc: Exception, item) -> None:
-        logger.critical(f"Handled exception: {exc}\n" f"Item: {item}")
+        try:
+            raise exc
+        except Exception:
+            logger.error(f"\nItem: {item}\n", exc_info=True)
         error = {"exception": exc, "item": item}
 
         self.bad_requests.append(error)
@@ -77,12 +79,12 @@ class Sender:
             title="Данные не были до конца переданы",
             message=message,
         )
-
+        iterators = [[tuple(i.values())[1] for i in results.bad_requests]]
         if question:
             threading.Thread(
                 target=self.send_data,
                 kwargs={
-                    "iterator": [tuple(i.values())[1] for i in results.bad_requests],
+                    "iterators": iterators,
                     **results.elements,
                 },
                 daemon=True,
@@ -90,26 +92,33 @@ class Sender:
 
     def send_data(
         self,
-        iterator: DocumentSalesIterator | Iterable,
+        iterators: Iterable[DocumentSalesIterator | Iterable],
         log: CTkLabel,
         progress_bar: CTkProgressBar,
         upload_button: CTkButton,
         sidebar_button: CTkButton,
     ) -> tuple[int, int]:
-        length = len(iterator)
-        successful_attempts = 0
+        iterator = tuple(i for i in iterators)
+        length = 0
+        for i in iterators:
+            for k in i:
+                length += 1
 
-        for count, item in enumerate(iterator, start=1):
-            self.update_log_and_progress_bar(
-                log=log, progress_bar=progress_bar, from_=count, to=length
-            )
-            try:
-                asyncio.run(
-                    self.add_income(name=item.item, amount=item.price, date=item.date)
+        successful_attempts = 0
+        for iterator in iterators:
+            for count, item in enumerate(iterator, start=1):
+                self.update_log_and_progress_bar(
+                    log=log, progress_bar=progress_bar, from_=count, to=length
                 )
-                successful_attempts += 1
-            except Exception as ex:
-                self.handle_exception(ex, item)
+                try:
+                    asyncio.run(
+                        self.add_income(
+                            name=item.item, amount=item.price, date=item.date
+                        )
+                    )
+                    successful_attempts += 1
+                except Exception as ex:
+                    self.handle_exception(ex, item)
 
         progress_bar.set(0)
 
@@ -130,6 +139,7 @@ class Sender:
                     "log": log,
                     "progress_bar": progress_bar,
                     "upload_button": upload_button,
+                    "sidebar_button": sidebar_button,
                 },
             )
         )
