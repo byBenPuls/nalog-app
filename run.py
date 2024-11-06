@@ -2,7 +2,6 @@ import logging
 
 from app import application
 
-
 logging.basicConfig(
     filename="resources/logging.log",
     filemode="a",
