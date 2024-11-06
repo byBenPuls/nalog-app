@@ -1,7 +1,15 @@
+import asyncio
+import logging
+import tkinter
+import tkinter.messagebox
 import customtkinter
+from moy_nalog import MoyNalog
 
-from app.auth import Auth
+from app.auth import Auth, Nalog
 from app.utils import set_icon, WindowsManager
+from app.elements import enable_buttons
+
+logger = logging.getLogger(__name__)
 
 
 class SecondWindow(customtkinter.CTkToplevel):
@@ -9,6 +17,7 @@ class SecondWindow(customtkinter.CTkToplevel):
         self,
         app: customtkinter.CTk,
         auth: Auth,
+        nalog: Nalog,
         manager: WindowsManager,
         authorized: bool = False,
     ) -> None:
@@ -22,9 +31,9 @@ class SecondWindow(customtkinter.CTkToplevel):
             app.withdraw()
 
         set_icon(app, "assets/wb")
-
         self.app = app
         self.auth = auth
+        self.nalog = nalog
 
         self.title("Авторизация nalog.ru")
         self.geometry("300x300")
@@ -63,10 +72,18 @@ class SecondWindow(customtkinter.CTkToplevel):
         checkbox = bool(self.checkbox.get())
 
         if login != "" and password != "":
-            self.auth.execute_nalog_auth(login, password, checkbox)
-
-            self.app.deiconify()
-            self.manager.close_window(SecondWindow)
+            nalog = MoyNalog(login, password)
+            try:
+                user_info = asyncio.run(nalog.get_user_info())
+            except Exception as ex:
+                tkinter.messagebox.showerror(title="Ошибка", message=str(ex))
+            else:
+                logger.info(f"Successfully authorized!\n{user_info}")
+                self.auth.execute_nalog_auth(login, password, checkbox)
+                self.nalog.update_instance(nalog)
+                self.app.deiconify()
+                enable_buttons(self.app.upload_button)
+                self.manager.close_window(SecondWindow)
 
     def on_closing(self) -> None:
         self.manager.close_window(SecondWindow)
