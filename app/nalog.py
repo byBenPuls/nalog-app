@@ -8,9 +8,11 @@ from typing import Iterable
 
 import tkinter
 from moy_nalog import MoyNalog
-from customtkinter import CTkProgressBar, CTkLabel, CTkButton, ACTIVE
+from customtkinter import CTkProgressBar, CTkLabel, CTkButton
 
+from app.auth import Nalog
 from app.tables import DocumentSalesIterator, Sale
+from app.elements import enable_buttons
 
 logger = logging.getLogger(__name__)
 
@@ -25,21 +27,18 @@ class SenderResult:
 
 
 class Sender:
-    def __init__(self, login: str, password: str, cooldown_in_seconds: int = 3) -> None:
+    def __init__(self, nalog: Nalog, cooldown_in_seconds: int = 3) -> None:
         self.cooldown: int = cooldown_in_seconds
 
-        self.nalog: MoyNalog = self._init_moy_nalog(login, password)
+        self.nalog: MoyNalog = nalog.get_instance()
 
         self.bad_requests: list = []
-
-    def _init_moy_nalog(self, login, password) -> MoyNalog:
-        return MoyNalog(login, password)
 
     async def add_income(
         self, name: str, amount: int | float, date: datetime.datetime
     ) -> None:
         await asyncio.sleep(self.cooldown)
-        await self.nalog.add_income(name=name, amount=amount, date=date)
+        # await self.nalog.add_income(name=name, amount=amount, date=date)
 
     def handle_exception(self, exc: Exception, item) -> None:
         try:
@@ -97,6 +96,7 @@ class Sender:
         progress_bar: CTkProgressBar,
         upload_button: CTkButton,
         sidebar_button: CTkButton,
+        settings_button: CTkButton,
     ) -> tuple[int, int]:
         iterator = tuple(i for i in iterators)
         length = 0
@@ -124,8 +124,7 @@ class Sender:
 
         log.configure(text="Данные успешно переданы!")
 
-        upload_button.configure(state=ACTIVE)
-        sidebar_button.configure(state=ACTIVE)
+        enable_buttons(upload_button, sidebar_button, settings_button)
 
         bad_requests = tuple(self.bad_requests)
         self.bad_requests = []
