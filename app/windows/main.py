@@ -6,12 +6,15 @@ import tkinter.messagebox
 import customtkinter
 from tkinter import filedialog
 
-from app.auth import Auth
+from app.auth import Auth, Nalog, license_is_valid
 from app.tables import ExcelReader, DocumentSalesIterator
 from app.nalog import Sender
 from app.windows.auth import SecondWindow
 from app.windows.settings import SettingsWindow
-from app.utils import set_icon, get_screen_size, WindowsManager
+from app.windows.register import RegisterWindow
+from app.utils.settings import Settings
+from app.utils import set_icon, get_screen_size, WindowsManager, get_app_version
+from app.elements import enable_buttons, disable_buttons
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ class MyFrame(customtkinter.CTkFrame):
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
         self.button1 = customtkinter.CTkButton(
-            self, text="Авторизация", command=self.open_auth_settings
+            self, text="lknpd.nalog.ru", command=self.open_auth_settings
         )
         self.button1.grid(row=1, column=0, padx=20, pady=10)
 
@@ -53,33 +56,43 @@ class MyFrame(customtkinter.CTkFrame):
         self.button3.grid(row=3, column=0, padx=20, pady=10)
 
         self.description = customtkinter.CTkLabel(
-            self, text="Powered by Ben Puls", text_color="gray"
+            self,
+            text=f"Powered by Ben Puls\n{get_app_version()} version",
+            text_color="gray",
         )
         self.description.grid(row=5, column=0, padx=20, pady=10)
 
     def open_auth_settings(self):
         self.manager.open_window(
-            SecondWindow, app=self.master, auth=self.auth, authorized=True
+            SecondWindow,
+            app=self.master,
+            auth=self.auth,
+            nalog=self.master.nalog,
+            authorized=True,
         )
 
     def open_settings_window(self):
-        self.manager.open_window(SettingsWindow, self.master)
+        self.manager.open_window(SettingsWindow, self.master, self.master.settings)
 
 
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
+        self.settings = Settings()
         self.manager = WindowsManager()
+        # self.manager.open_window(MonthWindow, number_of_months=[10, 11])
+        self.license = self.settings["meta"]["license"]
+        if not self.license and not license_is_valid(self.license):
+            self.manager.open_window(RegisterWindow, self, self.settings)
 
         self.wm_protocol("WM_DELETE_WINDOW", self.on_closing)
-
-        self.toplevel_window = None
 
         self.screen_size = get_screen_size()
         self.screen_x, self.screen_y = self.screen_size
 
         self.auth = Auth()
+        self.nalog = Nalog(self.auth.login, self.auth.password)
 
         self.geometry("600x400")
         set_icon(self, "assets/wb")
@@ -121,6 +134,8 @@ class App(customtkinter.CTk):
             self, text="Выбрать файл", command=self.open_file
         )
         self.upload_button.grid(row=1, column=1, padx=20, pady=10, sticky="ew")
+        if not self.auth.is_auth:
+            disable_buttons(self.upload_button)
 
         self.lknpd_button = customtkinter.CTkButton(
             self,
@@ -129,11 +144,6 @@ class App(customtkinter.CTk):
             state=customtkinter.DISABLED,
         )
         self.lknpd_button.grid(row=1, column=2, padx=20, pady=10, sticky="ew")
-
-        self.month = customtkinter.CTkOptionMenu(
-            self, corner_radius=2, values=["hello", "world"]
-        )
-        self.month.grid(row=2, column=1)
 
         self.log = customtkinter.CTkLabel(self, text="Ожидание файла...")
         self.log.grid(row=3, column=1, columnspan=2, pady=(0, 0), sticky="nsew")
@@ -162,7 +172,7 @@ class App(customtkinter.CTk):
             filetypes=(("Excel Files", "*.xlsx"),),
         )
         if files_paths:
-            self.lknpd_button.configure(state=customtkinter.ACTIVE)
+            enable_buttons(self.lknpd_button)
             suffix = "ы" if len(files_paths) > 1 else ""
             logging.info(f"{files_paths}")
             self.log.configure(text=f"Файл{suffix} получен{suffix}. Обрабатываю..")
@@ -177,16 +187,15 @@ class App(customtkinter.CTk):
             logging.debug("Choice is canceled")
 
     def send(self):
-        print(self.auth.login, self.auth.password)
-        self.sender = Sender(
-            login=self.auth.login,
-            password=self.auth.password,
-        )
+        self.sender = Sender(self.nalog, cooldown_in_seconds=self.settings["cooldown"])
 
         self.log.configure(text="Приступаю к отправке данных")
-        self.frame_sidebar.button1.configure(state=customtkinter.DISABLED)
-        self.lknpd_button.configure(state=customtkinter.DISABLED)
-        self.upload_button.configure(state=customtkinter.DISABLED)
+        disable_buttons(
+            self.frame_sidebar.button1,
+            self.frame_sidebar.button2,
+            self.lknpd_button,
+            self.upload_button,
+        )
         self.progress_bar.set(0)
 
         threading.Thread(
@@ -198,11 +207,15 @@ class App(customtkinter.CTk):
                 "progress_bar": self.progress_bar,
                 "upload_button": self.upload_button,
                 "sidebar_button": self.frame_sidebar.button1,
+                "settings_button": self.frame_sidebar.button2,
             },
         ).start()
 
     def open_toplevel(self):
-        self.manager.open_window(SecondWindow, self, self.auth)
+        print(self.manager.is_open(RegisterWindow))
+        while not self.manager.is_open(RegisterWindow):
+            self.manager.open_window(SecondWindow, self, self.auth, self.nalog)
+            break
 
     def on_closing(self):
         question = tkinter.messagebox.askokcancel(
