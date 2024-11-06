@@ -38,7 +38,7 @@ class Sender:
         self, name: str, amount: int | float, date: datetime.datetime
     ) -> None:
         await asyncio.sleep(self.cooldown)
-        # await self.nalog.add_income(name=name, amount=amount, date=date)
+        await self.nalog.add_income(name=name, amount=amount, date=date)
 
     def handle_exception(self, exc: Exception, item) -> None:
         try:
