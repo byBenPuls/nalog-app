@@ -2,6 +2,11 @@ import logging
 import json
 import base64
 
+from httpx import Client, HTTPStatusError
+from moy_nalog import MoyNalog
+
+from app.utils import guid
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,3 +60,27 @@ class Auth:
         file = self.open_nalog_auth()
         if file is not None:
             return file.get("password")
+
+
+def license_is_valid(key: str, id_: str = guid()) -> bool:
+    with Client() as client:
+        try:
+            res = client.post(
+                "https://wb.benpuls.ru/token", json={"token": key, "id": id_}
+            )
+            res.raise_for_status()
+
+            return True
+        except HTTPStatusError:
+            return False
+
+
+class Nalog:
+    def __init__(self, login: str, password: str) -> None:
+        self.__nalog_instance = MoyNalog(login, password)
+
+    def update_instance(self, instance: MoyNalog) -> None:
+        self.__nalog_instance = instance
+
+    def get_instance(self) -> MoyNalog:
+        return self.__nalog_instance
