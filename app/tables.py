@@ -2,7 +2,7 @@ import logging
 import datetime
 from dataclasses import dataclass
 
-import openpyxl
+import pandas
 
 logger = logging.getLogger(__name__)
 
@@ -28,21 +28,18 @@ class ExcelReader:
         logger.info(
             f"{self.path} opened in {"read only mode" if self.read_only else "write mode"}"
         )
-        self.table: openpyxl.Workbook = openpyxl.load_workbook(
-            self.path, read_only=self.read_only
-        )
-        logger.debug(
-            f"Openpyxl opened XLSX file; "
-            f"available worksheets: {self.table.worksheets}"
-        )
+        # self.table: openpyxl.Workbook = openpyxl.load_workbook(
+        # self.path, read_only=self.read_only, data_only=True
+        # )
+        self.table = pandas.read_excel(self.path)
+        logger.debug("Openpyxl opened XLSX file; ")
 
-    def __enter__(self) -> openpyxl.worksheet.worksheet.Worksheet:
+    def __enter__(self) -> pandas.DataFrame:
         logger.debug("Reading active sheet")
-        return self.table.active
+        return self.table
 
     def __exit__(self, type, value, traceback) -> None:
         logger.info("Closing XLSX connection")
-        self.table.close()
 
 
 class DocumentSalesIterator:
@@ -54,6 +51,8 @@ class DocumentSalesIterator:
         self.read_document()
 
     def get_necessary_data(self, row: tuple):
+        if len(row) < 15:
+            return
         if (
             (item := row[2])
             and (document_type := row[9]) == "Продажа"
@@ -61,18 +60,21 @@ class DocumentSalesIterator:
             and (quantity := row[13])
             and (price := row[15])
         ):
-            return Sale(
+            sale = Sale(
                 item=item,
                 document_type=document_type,
                 date=datetime.datetime.strptime(str_date, "%Y-%m-%d"),
                 quantity=int(quantity),
                 price=price,
             )
+            logger.info(f"{sale}")
+            return sale
 
     def read_document(self):
         with self.document as sheet:
-            for i in sheet.iter_rows(values_only=True):
+            for i in sheet.itertuples(index=False):
                 if data := self.get_necessary_data(i):
+                    print(data)
                     self.serialized_rows.append(data)
 
     def __len__(self):
