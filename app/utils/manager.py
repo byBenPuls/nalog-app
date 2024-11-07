@@ -10,6 +10,7 @@ class WindowsManager:
 
         if name not in self._windows:
             self._windows[name] = window_class(*args, manager=self, **kwargs)
+            # self._windows[name].grab_release() # not modal window
             self._windows[name].grab_set()  # make modal window strict!!!
         else:
             self._windows[name].focus()
